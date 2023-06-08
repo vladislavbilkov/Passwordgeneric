@@ -1,5 +1,18 @@
-compile:
-	gcc main.c -o main
+CXX = gcc
+CXXFLAGS = -Wall $$(pkg-config --cflags gtk4)
+
+LIBS = $$(pkg-config --libs gtk4)
+
+SRC := $(wildcard src/*.c)
+OBJ := $(patsubst src/%.c, src/%.o, $(SRC))
+
+src/%.o: src/%.c
+	$(CXX) -c $< $(CXXFLAGS) -o $@
+
+compile: $(OBJ)
+	mkdir -p bin
+	$(CXX) $(LIBS) $(CXXFLAGS) $^ -o bin/$@
 
 clean:
-	rm -v main *.o
+	rm -rf src/*.o bin/
+
