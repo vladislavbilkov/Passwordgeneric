@@ -1,6 +1,8 @@
 #pragma once
 
 #include <gtk/gtk.h>
+#include <openssl/aes.h>
+#include <stdio.h>
 #include "WindowContentFunk.h"
 
 void login_button_clicked(GtkButton *button, GtkWidget *passentry);
@@ -21,3 +23,15 @@ void login_button_clicked(GtkButton *button, GtkWidget *passentry);
 void generate_button_clicked(GtkButton *button, gpointer user_data);
 void add_button_clicked(GtkButton *button, gpointer user_data);
 void content_main_window(GtkApplication *app);
+
+void add_new_user_label_clicked(GtkLabel *label, gpointer user_data);
+
+void check_password_length(GtkWidget *button, GtkWidget *passentry);
+
+void aes_encrypt(const char *input, const char *key, char *output);
+
+void aes_decrypt(const char *input, const char *key, char *output);
+
+void on_add_pass_button_clicked(GtkButton *button, gpointer user_data);
+
+void button_item_clicked(GtkButton *button, gpointer user_data);

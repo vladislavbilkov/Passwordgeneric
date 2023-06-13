@@ -45,7 +45,7 @@ void content_login_window(GtkApplication* app)
     //create main window and set child
     window = gtk_application_window_new(app);
     gtk_window_set_title(GTK_WINDOW(window), "Вхід");
-    gtk_window_set_default_size(GTK_WINDOW(window), 800, 600);
+    gtk_window_set_default_size(GTK_WINDOW(window), 400, 200);
 
     container = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
 

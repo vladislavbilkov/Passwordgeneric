@@ -1,11 +1,12 @@
 #include "BoxContentFunk.h"
 
+GtkWidget *entries[3];
+
 void content_login_container_box(GtkWidget *container)
 {
-    GtkWidget *textlabel, *submitbutton, *passentry, *labelnewuser;
+    GtkWidget *textlabel, *submitbutton, *passentry, *newuserbutton;
 
     textlabel = gtk_label_new("Пароль");
-    labelnewuser = gtk_label_new("Новий користувач");
 
     passentry = gtk_entry_new();
     gtk_entry_set_visibility(GTK_ENTRY(passentry), FALSE);
@@ -13,10 +14,13 @@ void content_login_container_box(GtkWidget *container)
     submitbutton = gtk_button_new_with_label("Вхід");
     g_signal_connect(submitbutton, "clicked", G_CALLBACK(login_button_clicked), passentry);
 
+    newuserbutton = gtk_button_new_with_label("Новий користувач");
+    g_signal_connect(newuserbutton, "clicked", G_CALLBACK(add_new_user_label_clicked), NULL);
+
     gtk_box_append(GTK_BOX(container), textlabel);
     gtk_box_append(GTK_BOX(container), passentry);
     gtk_box_append(GTK_BOX(container), submitbutton);
-    gtk_box_append(GTK_BOX(container), labelnewuser);
+    gtk_box_append(GTK_BOX(container), newuserbutton);
 }
 
 void content_header_box(GtkWidget *header)
@@ -83,36 +87,132 @@ void content_header_box(GtkWidget *header)
 
 void content_center_box(GtkWidget *content)
 {
-    GtkWidget *content_button[15], *content_box[15], *content_label[15];
-
-    for(int i = 0; i < 15; i++)
+    FILE* file = fopen("bin/encrypted_passwords.bin", "rb");
+    if (file != NULL) 
     {
-        content_button[i] = gtk_button_new();
-        gtk_widget_set_size_request(content_button[i], -1, 50);
+        fseek(file, 0, SEEK_END);
+        long file_size = ftell(file);
+        rewind(file);
+        int num_passwords = file_size / (AES_BLOCK_SIZE * 3);
 
-        content_box[i] = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 15);
-        content_label[i] = gtk_label_new("Назва ресурсу пароля");
-        gtk_widget_set_hexpand(content_label[i], TRUE);
-        gtk_widget_set_halign(content_label[i], GTK_ALIGN_START);
-        if(i < 8)
+        // Оголошення масивів для збереження всіх зчитаних значень
+        char encrypted_type[num_passwords][AES_BLOCK_SIZE];
+        char encrypted_name[num_passwords][AES_BLOCK_SIZE];
+        char encrypted_password[num_passwords][AES_BLOCK_SIZE];
+
+        for(int i = 0; i < num_passwords; i++)
         {
-            GtkWidget *entry_images = gtk_image_new_from_file("img/global.png");
-            gtk_box_append(GTK_BOX(content_box[i]), entry_images);
+            fread(encrypted_type[i], sizeof(char), AES_BLOCK_SIZE, file);
+            fread(encrypted_name[i], sizeof(char), AES_BLOCK_SIZE, file);
+            fread(encrypted_password[i], sizeof(char), AES_BLOCK_SIZE, file);
+
         }
-        else if(i < 12)
+        fclose(file);
+
+        // Додавання кнопок для кожного елементу
+        for (int i = 0; i < num_passwords; i++) 
         {
-            GtkWidget *card_images = gtk_image_new_from_file("img/credit-card.png");
-            gtk_box_append(GTK_BOX(content_box[i]), card_images);
+            // Створення горизонтального контейнера для кожного елементу
+            GtkWidget *item_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+            gtk_box_set_homogeneous(GTK_BOX(item_box), TRUE);
+            gtk_box_append(GTK_BOX(content), item_box);
+
+            // Створення кнопки з іменем
+            GtkWidget *button = gtk_button_new();
+            GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+
+            // Створення зображення
+            GtkWidget *image = gtk_image_new_from_file("img/global.png");
+            gtk_box_append(GTK_BOX(box), image);
+
+            // Створення етикетки з іменем
+            GtkWidget *name_label = gtk_label_new(encrypted_name[i]);
+            gtk_box_append(GTK_BOX(box), name_label);
+
+            // Додавання вертикального контейнера до кнопки
+            gtk_button_set_child(GTK_BUTTON(button), box);
+
+            g_signal_connect(button, "clicked", G_CALLBACK(button_item_clicked), item_box);
+            gtk_box_append(GTK_BOX(item_box), button);
+
+            // Створення етикетки для паролю (початково прихована)
+
+            char password_text[256];
+            snprintf(password_text, sizeof(password_text), "Пароль: %s", encrypted_password[i]);
+
+            GtkWidget *password_label = gtk_label_new(password_text);
+            gtk_widget_set_visible(password_label, FALSE);
+            gtk_box_append(GTK_BOX(item_box), password_label);
+
         }
-        else
-        {
-            GtkWidget *user_data_images = gtk_image_new_from_file("img/card.png");
-            gtk_box_append(GTK_BOX(content_box[i]), user_data_images);
-        }
-        gtk_box_append(GTK_BOX(content_box[i]), content_label[i]);
-        gtk_button_set_child(GTK_BUTTON(content_button[i]), content_box[i]);
-        gtk_box_append(GTK_BOX(content), content_button[i]);
+
     }
+    else 
+    {
+        printf("Помилка відкриття файлу.\n");
+    }
+
+    /*char decrypted_type[AES_BLOCK_SIZE];
+    char decrypted_name[AES_BLOCK_SIZE];
+    char decrypted_password[AES_BLOCK_SIZE];
+
+    if (file != NULL) 
+    {
+        fread(encrypted_type, sizeof(char), AES_BLOCK_SIZE, file);
+        fread(encrypted_name, sizeof(char), AES_BLOCK_SIZE, file);
+        fread(encrypted_password, sizeof(char), AES_BLOCK_SIZE, file);
+        fclose(file);
+
+        g_print("File text--------\n");
+        g_print("Type: %s\n", encrypted_type);
+        g_print("Name: %s\n", encrypted_name);
+        g_print("Password: %s\n", encrypted_password);
+
+        const char *key = "my_secret_key";
+
+        aes_decrypt(encrypted_type, key, decrypted_type);
+        aes_decrypt(encrypted_name, key, decrypted_name);
+        aes_decrypt(encrypted_password, key, decrypted_password);
+
+        g_print("Decriped text------------\n");
+        g_print("Decrypted Type: %s\n", decrypted_type);
+        g_print("Decrypted Name: %s\n", decrypted_name);
+        g_print("Decrypted Password: %s\n", decrypted_password);
+    }*/
+
+    /*if(num_passwords != 0)
+    {
+        GtkWidget *content_button[num_passwords], *content_box[num_passwords], *content_label[num_passwords];
+
+        for(int i = 0; i < num_passwords; i++)
+        {
+            content_button[i] = gtk_button_new();
+            gtk_widget_set_size_request(content_button[i], -1, 50);
+
+            content_label[i] = gtk_label_new("test");
+
+            gtk_widget_set_hexpand(content_label[i], TRUE);
+            gtk_widget_set_halign(content_label[i], GTK_ALIGN_START);
+            if(i < 8)
+            {
+                GtkWidget *entry_images = gtk_image_new_from_file("img/global.png");
+                gtk_box_append(GTK_BOX(content_box[i]), entry_images);
+            }
+            else if(i < 12)
+            {
+                GtkWidget *card_images = gtk_image_new_from_file("img/credit-card.png");
+                gtk_box_append(GTK_BOX(content_box[i]), card_images);
+            }
+            else
+            {
+                GtkWidget *user_data_images = gtk_image_new_from_file("img/card.png");
+                gtk_box_append(GTK_BOX(content_box[i]), user_data_images);
+            }
+            gtk_box_append(GTK_BOX(content_box[i]), content_label[i]);
+            gtk_button_set_child(GTK_BUTTON(content_button[i]), content_box[i]);
+            gtk_box_append(GTK_BOX(content), content_button[i]);
+        }
+    }*/
 }
 
 void content_footer_box(GtkWidget *footer)
@@ -136,8 +236,9 @@ void content_add_pass_header_box(GtkWidget *header_box)
 {
     GtkWidget *pass_box, *type_box, *name_box;
     GtkWidget *pass_label, *type_label, *name_label;
-    GtkWidget *pass_entry, *type_entry, *name_entry;
+    GtkWidget *pass_entry, *name_entry;
     GtkWidget *generate_button;
+    GtkWidget *type_combo_box;
 
     // Створюємо блоки для пароля, типу та імені
     pass_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
@@ -150,10 +251,32 @@ void content_add_pass_header_box(GtkWidget *header_box)
     pass_label = gtk_label_new("Пароль");
 
     // Створюємо поля вводу для пароля, типу та імені
-    type_entry = gtk_entry_new();
+    //type_entry = gtk_entry_new();
+    //entries[0] = type_entry;
     name_entry = gtk_entry_new();
+    entries[1] = name_entry;
     pass_entry = gtk_entry_new();
-    ptr_entry = pass_entry;
+    entries[2] = pass_entry;
+    
+    // Створення моделі для випадаючого списку
+    GtkListStore *list_store = gtk_list_store_new(1, G_TYPE_STRING);
+
+    // Додавання елементів до моделі
+    GtkTreeIter iter;
+    gtk_list_store_append(list_store, &iter);
+    gtk_list_store_set(list_store, &iter, 0, "Вхід ", -1);
+    gtk_list_store_append(list_store, &iter);
+    gtk_list_store_set(list_store, &iter, 0, "Банк", -1);
+    gtk_list_store_append(list_store, &iter);
+    gtk_list_store_set(list_store, &iter, 0, "Особисті дані", -1);
+
+    // Створення випадаючого списку
+    type_combo_box = gtk_combo_box_new_with_model(GTK_TREE_MODEL(list_store));
+    GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+    gtk_cell_layout_pack_start(GTK_CELL_LAYOUT(type_combo_box), renderer, TRUE);
+    gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(type_combo_box), renderer, "text", 0, NULL);
+    entries[0] = type_combo_box;
+
 
     // Створюємо кнопку "Генерувати"
     generate_button = gtk_button_new_with_label("Генерувати");
@@ -161,7 +284,7 @@ void content_add_pass_header_box(GtkWidget *header_box)
 
     // Додаємо мітки та поля вводу в блоки
     gtk_box_append(GTK_BOX(type_box), type_label);
-    gtk_box_append(GTK_BOX(type_box), type_entry);
+    gtk_box_append(GTK_BOX(type_box), type_combo_box);
 
     gtk_box_append(GTK_BOX(name_box), name_label);
     gtk_box_append(GTK_BOX(name_box), name_entry);

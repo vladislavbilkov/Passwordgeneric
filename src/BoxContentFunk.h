@@ -4,8 +4,6 @@
 
 #include <gtk/gtk.h>
 
-GtkWidget *ptr_entry;
-
 void content_login_container_box(GtkWidget *container);
 void content_header_box(GtkWidget *header);
 void content_center_box(GtkWidget *content);
