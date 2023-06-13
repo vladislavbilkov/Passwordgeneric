@@ -1,5 +1,5 @@
 CXX = gcc
-CXXFLAGS = -Wall $$(pkg-config --cflags gtk4)
+CXXFLAGS = $$(pkg-config --cflags gtk4)
 
 LIBS = $$(pkg-config --libs gtk4)
 
