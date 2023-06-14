@@ -10,6 +10,8 @@ static int min_special = 1;
 static int length = 4;
 
 extern GtkWidget *entries[3];
+extern GtkWidget *container_box;
+extern GtkWidget *counters[3];
 
 gchar *generate_pass() {
     GString *password = g_string_new("");
@@ -408,10 +410,109 @@ void on_add_pass_button_clicked(GtkButton *button, gpointer user_data)
 
     FILE *file = fopen("bin/encrypted_passwords.bin", "ab");
     if (file != NULL) {
-        fwrite(type_text, sizeof(char), AES_BLOCK_SIZE, file);
-        fwrite(name_text, sizeof(char), AES_BLOCK_SIZE, file);
-        fwrite(pass_text, sizeof(char), AES_BLOCK_SIZE, file);
+        size_t type_len = strlen(type_text) + 1;  // +1 для нуль-термінатора
+        size_t name_len = strlen(name_text) + 1;
+        size_t pass_len = strlen(pass_text) + 1;
+
+        fwrite(&type_len, sizeof(size_t), 1, file);
+        fwrite(&name_len, sizeof(size_t), 1, file);
+        fwrite(&pass_len, sizeof(size_t), 1, file);
+        fwrite(type_text, sizeof(char), type_len, file);
+        fwrite(name_text, sizeof(char), name_len, file);
+        fwrite(pass_text, sizeof(char), pass_len, file);
+        
         fclose(file);
+    }
+
+    // Створення горизонтального контейнера для кожного елементу
+    GtkWidget *item_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_set_homogeneous(GTK_BOX(item_box), TRUE);
+    gtk_box_append(GTK_BOX(container_box), item_box);
+
+    // Створення кнопки з іменем
+    GtkWidget *button_pass = gtk_button_new();
+    GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+
+    // Визначення типу та вибір відповідної картинки
+    GtkWidget *image = NULL;
+
+    if (strcmp(type_text, "Вхід") == 0) {
+        image = gtk_image_new_from_file("img/global.png");
+        // Отримання тексту з мітки
+        char *text = gtk_label_get_text(GTK_LABEL(counters[0]));
+
+        // Конвертування тексту в ціле число
+        int value = atoi(text);
+
+        sprintf(text, "%d", value + 1);
+        gtk_label_set_text(GTK_LABEL(counters[0]), text);
+
+    } else if (strcmp(type_text, "Банк") == 0) {
+        image = gtk_image_new_from_file("img/credit-card.png");
+        // Отримання тексту з мітки
+        char *text = gtk_label_get_text(GTK_LABEL(counters[1]));
+
+        // Конвертування тексту в ціле число
+        int value = atoi(text);
+
+        sprintf(text, "%d", value + 1);
+        gtk_label_set_text(GTK_LABEL(counters[1]), text);
+    } else if(strcmp(type_text, "Інші") == 0) {
+        image = gtk_image_new_from_file("img/card.png");
+        // Отримання тексту з мітки
+        char *text = gtk_label_get_text(GTK_LABEL(counters[2]));
+
+        // Конвертування тексту в ціле число
+        int value = atoi(text);
+
+        sprintf(text, "%d", value + 1);
+        gtk_label_set_text(GTK_LABEL(counters[2]), text);
+    }
+
+    gtk_box_append(GTK_BOX(box), image);
+
+    // Створення етикетки з іменем
+    GtkWidget *name_label = gtk_label_new(name_text);
+    gtk_box_append(GTK_BOX(box), name_label);
+
+    // Додавання вертикального контейнера до кнопки
+    gtk_button_set_child(GTK_BUTTON(button_pass), box);
+
+    g_signal_connect(button_pass, "clicked", G_CALLBACK(button_item_clicked), item_box);
+    gtk_box_append(GTK_BOX(item_box), button_pass);
+
+    // Створення етикетки для паролю (початково прихована)
+
+    char password_text[256];
+    snprintf(password_text, sizeof(password_text), "Пароль: %s", pass_text);
+
+    GtkWidget *password_label = gtk_label_new(password_text);
+    gtk_widget_set_visible(password_label, FALSE);
+    gtk_widget_set_hexpand(password_label, TRUE);
+    gtk_label_set_xalign(GTK_LABEL(password_label), 0.0);
+    gtk_widget_set_margin_start(password_label, 10);
+    gtk_box_append(GTK_BOX(item_box), password_label);
+
+    // Створення кнопки видалення
+    GtkWidget *delete_button = gtk_button_new();
+    GtkWidget *delete_image = gtk_image_new_from_file("img/trash.png");
+    gtk_widget_set_hexpand(delete_button, FALSE);
+    gtk_widget_set_halign(delete_button, GTK_ALIGN_END);
+    gtk_button_set_child(GTK_BUTTON(delete_button), delete_image);
+
+    // Визначення видимості кнопки видалення
+    gtk_widget_set_visible(delete_button, FALSE);
+
+    // Додавання кнопки видалення до контейнера
+    gtk_box_append(GTK_BOX(item_box), delete_button);
+
+    // З'єднання обробника події для кнопки видалення
+    //g_signal_connect(delete_button, "clicked", G_CALLBACK(delete_button_clicked), item_box);
+
+    GtkWidget *toplevel = gtk_widget_get_ancestor(button, GTK_TYPE_WINDOW);
+
+    if (GTK_IS_WINDOW(toplevel)) {
+        gtk_window_close(GTK_WINDOW(toplevel));
     }
 
 }
@@ -422,14 +523,20 @@ void button_item_clicked(GtkButton *button, gpointer user_data) {
     // Отримання першого дочірнього елемента контейнера
     GtkWidget *child = gtk_widget_get_last_child(GTK_WIDGET(box));
 
+    // Отримання передостаннього дочірнього елемента контейнера
+    GtkWidget *prev_sibling = gtk_widget_get_prev_sibling(child);
+
     // Перевірка стану видимості другого дочірнього елемента
     gboolean visible = gtk_widget_get_visible(child);
 
     if (visible) {
         // Приховуємо другий дочірній елемент
         gtk_widget_hide(child);
+        gtk_widget_hide(prev_sibling);
     } else {
         // Показуємо другий дочірній елемент
         gtk_widget_show(child);
+        gtk_widget_show(prev_sibling);
     }
 }
+

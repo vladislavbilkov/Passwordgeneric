@@ -35,3 +35,5 @@ void aes_decrypt(const char *input, const char *key, char *output);
 void on_add_pass_button_clicked(GtkButton *button, gpointer user_data);
 
 void button_item_clicked(GtkButton *button, gpointer user_data);
+
+void password_visibility_changed(GtkLabel *label, GParamSpec *pspec, gpointer user_data);

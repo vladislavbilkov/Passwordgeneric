@@ -1,7 +1,7 @@
 CXX = gcc
-CXXFLAGS = $$(pkg-config --cflags gtk4)
+CXXFLAGS = $$(pkg-config --cflags gtk4) -Wextra -I/path/to/openssl/include
 
-LIBS = $$(pkg-config --libs gtk4)
+LIBS = $$(pkg-config --libs gtk4) -L/path/to/openssl/lib -lssl -lcrypto
 
 SRC := $(wildcard src/*.c)
 OBJ := $(patsubst src/%.c, src/%.o, $(SRC))

@@ -1,6 +1,8 @@
 #include "BoxContentFunk.h"
 
 GtkWidget *entries[3];
+GtkWidget *container_box;
+GtkWidget *counters[3];
 
 void content_login_container_box(GtkWidget *container)
 {
@@ -45,7 +47,7 @@ void content_header_box(GtkWidget *header)
 
     entry_label = gtk_label_new("Вхід");
     card_label = gtk_label_new("Банк");
-    user_data_label = gtk_label_new("Особисті дані");
+    user_data_label = gtk_label_new("Інші");
     //fill all and position label in the button 
     gtk_widget_set_hexpand(entry_label, TRUE);
     gtk_widget_set_hexpand(card_label, TRUE);
@@ -54,9 +56,13 @@ void content_header_box(GtkWidget *header)
     gtk_widget_set_halign(card_label, GTK_ALIGN_START);
     gtk_widget_set_halign(user_data_label, GTK_ALIGN_START);
 
-    entry_counter = gtk_label_new("8");
-    card_counter = gtk_label_new("5");
-    user_data_counter = gtk_label_new("3");
+    entry_counter = gtk_label_new("0");
+    card_counter = gtk_label_new("0");
+    user_data_counter = gtk_label_new("0");
+
+    counters[0] = entry_counter;
+    counters[1] = card_counter;
+    counters[2] = user_data_counter;
 
     entry_image = gtk_image_new_from_file("img/global.png");
     card_image = gtk_image_new_from_file("img/credit-card.png");
@@ -90,24 +96,62 @@ void content_center_box(GtkWidget *content)
     FILE* file = fopen("bin/encrypted_passwords.bin", "rb");
     if (file != NULL) 
     {
-        fseek(file, 0, SEEK_END);
-        long file_size = ftell(file);
+        int num_passwords = 0;
+
+        while (1) {
+            size_t type_len, name_len, pass_len;
+
+            if (fread(&type_len, sizeof(size_t), 1, file) != 1 ||
+                fread(&name_len, sizeof(size_t), 1, file) != 1 ||
+                fread(&pass_len, sizeof(size_t), 1, file) != 1) {
+                break; // Помилка при зчитуванні довжини блоків
+            }
+
+            if (type_len == 0 || name_len == 0 || pass_len == 0) {
+                break; // Недопустима довжина блоку
+            }
+
+            // Пропустити дані блоку
+            fseek(file, type_len + name_len + pass_len, SEEK_CUR);
+
+            num_passwords++;
+        }
+
+        // Використання отриманої кількості записів
+        printf("Кількість записів: %d\n", num_passwords);
+
+        // Повернутися до початку файлу
         rewind(file);
-        int num_passwords = file_size / (AES_BLOCK_SIZE * 3);
 
-        // Оголошення масивів для збереження всіх зчитаних значень
-        char encrypted_type[num_passwords][AES_BLOCK_SIZE];
-        char encrypted_name[num_passwords][AES_BLOCK_SIZE];
-        char encrypted_password[num_passwords][AES_BLOCK_SIZE];
+        //size_t max_text_length = AES_BLOCK_SIZE; // Максимальна довжина тексту
+        char** encrypted_type = malloc(num_passwords * sizeof(char*));
+        char** encrypted_name = malloc(num_passwords * sizeof(char*));
+        char** encrypted_password = malloc(num_passwords * sizeof(char*));
 
-        for(int i = 0; i < num_passwords; i++)
-        {
-            fread(encrypted_type[i], sizeof(char), AES_BLOCK_SIZE, file);
-            fread(encrypted_name[i], sizeof(char), AES_BLOCK_SIZE, file);
-            fread(encrypted_password[i], sizeof(char), AES_BLOCK_SIZE, file);
+        for (int i = 0; i < num_passwords; i++) {
+            size_t type_len, name_len, pass_len;
 
+            fread(&type_len, sizeof(size_t), 1, file);
+            fread(&name_len, sizeof(size_t), 1, file);
+            fread(&pass_len, sizeof(size_t), 1, file);
+
+            encrypted_type[i] = malloc((type_len + 1) * sizeof(char));
+            encrypted_name[i] = malloc((name_len + 1) * sizeof(char));
+            encrypted_password[i] = malloc((pass_len + 1) * sizeof(char));
+
+            fread(encrypted_type[i], sizeof(char), type_len, file);
+            fread(encrypted_name[i], sizeof(char), name_len, file);
+            fread(encrypted_password[i], sizeof(char), pass_len, file);
+
+            encrypted_type[i][type_len] = '\0'; // Додати завершуючий символ '\0'
+            encrypted_name[i][name_len] = '\0';
+            encrypted_password[i][pass_len] = '\0';
         }
         fclose(file);
+
+        int counter_type_login = 0;
+        int counter_type_bank = 0;
+        int counter_type_another = 0;
 
         // Додавання кнопок для кожного елементу
         for (int i = 0; i < num_passwords; i++) 
@@ -121,8 +165,21 @@ void content_center_box(GtkWidget *content)
             GtkWidget *button = gtk_button_new();
             GtkWidget *box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
 
-            // Створення зображення
-            GtkWidget *image = gtk_image_new_from_file("img/global.png");
+            // Визначення типу та вибір відповідної картинки
+            GtkWidget *image = NULL;
+
+            
+            if (strcmp(encrypted_type[i], "Вхід") == 0) {
+                image = gtk_image_new_from_file("img/global.png");
+                counter_type_login++;
+            } else if (strcmp(encrypted_type[i], "Банк") == 0) {
+                image = gtk_image_new_from_file("img/credit-card.png");
+                counter_type_bank++;
+            } else if(strcmp(encrypted_type[i], "Інші") == 0) {
+                image = gtk_image_new_from_file("img/card.png");
+                counter_type_another++;
+            }
+
             gtk_box_append(GTK_BOX(box), image);
 
             // Створення етикетки з іменем
@@ -142,15 +199,53 @@ void content_center_box(GtkWidget *content)
 
             GtkWidget *password_label = gtk_label_new(password_text);
             gtk_widget_set_visible(password_label, FALSE);
+            gtk_widget_set_hexpand(password_label, TRUE);
+            gtk_label_set_xalign(GTK_LABEL(password_label), 0.0);
+            gtk_widget_set_margin_start(password_label, 10);
             gtk_box_append(GTK_BOX(item_box), password_label);
 
+            // Створення кнопки видалення
+            GtkWidget *delete_button = gtk_button_new();
+            GtkWidget *delete_image = gtk_image_new_from_file("img/trash.png");
+            gtk_widget_set_hexpand(delete_button, FALSE);
+            gtk_widget_set_halign(delete_button, GTK_ALIGN_END);
+            gtk_button_set_child(GTK_BUTTON(delete_button), delete_image);
+
+            // Визначення видимості кнопки видалення
+            gtk_widget_set_visible(delete_button, FALSE);
+
+            // Додавання кнопки видалення до контейнера
+            gtk_box_append(GTK_BOX(item_box), delete_button);
+
+            // З'єднання обробника події для кнопки видалення
+            //g_signal_connect(delete_button, "clicked", G_CALLBACK(delete_button_clicked), item_box);
         }
+
+        char text[20];
+        sprintf(text, "%d", counter_type_login);
+        gtk_label_set_text(GTK_LABEL(counters[0]), text);
+
+        sprintf(text, "%d", counter_type_bank);
+        gtk_label_set_text(GTK_LABEL(counters[1]), text);
+
+        sprintf(text, "%d", counter_type_another);
+        gtk_label_set_text(GTK_LABEL(counters[2]), text);
+
+        for (int i = 0; i < num_passwords; i++) {
+            free(encrypted_type[i]);
+            free(encrypted_name[i]);
+            free(encrypted_password[i]);
+        }
+        free(encrypted_type);
+        free(encrypted_name);
+        free(encrypted_password);
 
     }
     else 
     {
         printf("Помилка відкриття файлу.\n");
     }
+    container_box = content;
 
     /*char decrypted_type[AES_BLOCK_SIZE];
     char decrypted_name[AES_BLOCK_SIZE];
@@ -178,40 +273,6 @@ void content_center_box(GtkWidget *content)
         g_print("Decrypted Type: %s\n", decrypted_type);
         g_print("Decrypted Name: %s\n", decrypted_name);
         g_print("Decrypted Password: %s\n", decrypted_password);
-    }*/
-
-    /*if(num_passwords != 0)
-    {
-        GtkWidget *content_button[num_passwords], *content_box[num_passwords], *content_label[num_passwords];
-
-        for(int i = 0; i < num_passwords; i++)
-        {
-            content_button[i] = gtk_button_new();
-            gtk_widget_set_size_request(content_button[i], -1, 50);
-
-            content_label[i] = gtk_label_new("test");
-
-            gtk_widget_set_hexpand(content_label[i], TRUE);
-            gtk_widget_set_halign(content_label[i], GTK_ALIGN_START);
-            if(i < 8)
-            {
-                GtkWidget *entry_images = gtk_image_new_from_file("img/global.png");
-                gtk_box_append(GTK_BOX(content_box[i]), entry_images);
-            }
-            else if(i < 12)
-            {
-                GtkWidget *card_images = gtk_image_new_from_file("img/credit-card.png");
-                gtk_box_append(GTK_BOX(content_box[i]), card_images);
-            }
-            else
-            {
-                GtkWidget *user_data_images = gtk_image_new_from_file("img/card.png");
-                gtk_box_append(GTK_BOX(content_box[i]), user_data_images);
-            }
-            gtk_box_append(GTK_BOX(content_box[i]), content_label[i]);
-            gtk_button_set_child(GTK_BUTTON(content_button[i]), content_box[i]);
-            gtk_box_append(GTK_BOX(content), content_button[i]);
-        }
     }*/
 }
 
@@ -256,6 +317,7 @@ void content_add_pass_header_box(GtkWidget *header_box)
     name_entry = gtk_entry_new();
     entries[1] = name_entry;
     pass_entry = gtk_entry_new();
+    gtk_widget_set_hexpand(pass_entry, TRUE);
     entries[2] = pass_entry;
     
     // Створення моделі для випадаючого списку
@@ -264,11 +326,11 @@ void content_add_pass_header_box(GtkWidget *header_box)
     // Додавання елементів до моделі
     GtkTreeIter iter;
     gtk_list_store_append(list_store, &iter);
-    gtk_list_store_set(list_store, &iter, 0, "Вхід ", -1);
+    gtk_list_store_set(list_store, &iter, 0, "Вхід", -1);
     gtk_list_store_append(list_store, &iter);
     gtk_list_store_set(list_store, &iter, 0, "Банк", -1);
     gtk_list_store_append(list_store, &iter);
-    gtk_list_store_set(list_store, &iter, 0, "Особисті дані", -1);
+    gtk_list_store_set(list_store, &iter, 0, "Інші", -1);
 
     // Створення випадаючого списку
     type_combo_box = gtk_combo_box_new_with_model(GTK_TREE_MODEL(list_store));
@@ -277,9 +339,13 @@ void content_add_pass_header_box(GtkWidget *header_box)
     gtk_cell_layout_set_attributes(GTK_CELL_LAYOUT(type_combo_box), renderer, "text", 0, NULL);
     entries[0] = type_combo_box;
 
-
     // Створюємо кнопку "Генерувати"
-    generate_button = gtk_button_new_with_label("Генерувати");
+    generate_button = gtk_button_new();
+    GtkWidget *image = gtk_image_new_from_file("img/refresh.png");
+
+    // Встановлюємо картинку як дочірній віджет для кнопки
+    gtk_button_set_child(GTK_BUTTON(generate_button), image);
+
     g_signal_connect(generate_button, "clicked", G_CALLBACK(generate_button_clicked), pass_entry);
 
     // Додаємо мітки та поля вводу в блоки
